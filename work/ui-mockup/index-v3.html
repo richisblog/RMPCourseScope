@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#ffffff">
+  <title>CourseScope — UC Davis course and professor search</title>
+  <meta name="description" content="Search UC Davis courses and professors, then explore course-linked reviews.">
+  <link rel="help" href="/openapi.json" type="application/json" title="CourseScope API description">
+  <link rel="help" href="/ai-guide" title="CourseScope AI usage guide">
+  <link rel="alternate" href="/llms.txt" type="text/plain" title="CourseScope instructions for AI clients">
+  <style>
+    :root{--ink:#172b3b;--navy:#092c4c;--gold:#d99c00;--muted:#5c6872;--line:#dce1e4;--focus:#165f91}
+    *{box-sizing:border-box}
+    body{margin:0;background:#fff;color:var(--ink);font:16px/1.5 system-ui,-apple-system,"Segoe UI",Arial,sans-serif}
+    a{color:var(--navy);text-underline-offset:3px}a:hover{color:#165f91}button,input{font:inherit}
+    :focus-visible{outline:3px solid var(--focus);outline-offset:3px}
+    .campus-line{height:4px;background:var(--navy)}.campus-line:after{content:"";display:block;width:9%;height:100%;margin-left:auto;background:var(--gold)}
+    .skip{position:absolute;top:-80px;left:16px;z-index:5;padding:10px 14px;background:#fff}.skip:focus{top:12px}
+    .topbar{max-width:1220px;margin:auto;padding:19px 32px;display:flex;justify-content:space-between;align-items:center;gap:20px}
+    .topbar-name{font-weight:700;font-size:17px;letter-spacing:-.025em;text-decoration:none}
+    .topbar-links{display:flex;align-items:center;gap:24px;font-size:13px;font-weight:600}.topbar-links a{text-decoration:none}.topbar-links a:hover{text-decoration:underline}
+    .language{display:inline-flex;gap:8px;align-items:center}.language a[aria-current="page"]{border-bottom:2px solid var(--gold)}
+    main{min-height:calc(100vh - 184px)}
+    .hero{max-width:760px;margin:0 auto;padding:clamp(90px,15vh,170px) 24px 90px;text-align:center}
+    .eyebrow{margin:0 0 14px;color:var(--muted);font-size:13px;letter-spacing:.025em}
+    h1{margin:0;color:var(--navy);font:700 clamp(46px,7vw,68px)/1.05 Georgia,"Times New Roman",serif;letter-spacing:-.045em}
+    .hero-copy{margin:17px auto 36px;max-width:510px;color:var(--muted);font-size:16px}
+    .search-form{margin:0 auto;max-width:680px}.search-form label{display:block;margin-bottom:10px;text-align:left;font-size:14px;font-weight:650}
+    .search-box{display:flex;align-items:center;gap:12px;min-height:58px;padding:5px 6px 5px 18px;border:1px solid #b6c0c8;border-radius:30px;box-shadow:0 2px 10px rgba(9,44,76,.07);transition:border-color .18s,box-shadow .18s}
+    .search-box:focus-within{border-color:var(--focus);box-shadow:0 2px 16px rgba(9,44,76,.13)}
+    .search-icon{width:20px;height:20px;flex:0 0 auto;color:#657783}
+    .search-box input{width:100%;min-width:0;height:44px;border:0;background:transparent;color:var(--ink);outline:0;font-size:16px}.search-box input::placeholder{color:#687782}
+    .search-box button{min-width:86px;min-height:46px;padding:0 19px;border:0;border-radius:24px;background:var(--navy);color:#fff;font-size:14px;font-weight:650;cursor:pointer;transition:background .18s}.search-box button:hover{background:#174f78}.search-box button:focus-visible{outline-offset:2px}
+    .examples{display:flex;justify-content:center;align-items:center;flex-wrap:wrap;gap:9px;margin-top:21px;color:var(--muted);font-size:13px}.examples span{margin-right:2px}
+    .examples a{display:inline-flex;min-height:36px;align-items:center;padding:6px 11px;border:1px solid var(--line);border-radius:6px;text-decoration:none;font-size:13px}.examples a:hover{border-color:#8fa6b6;background:#f5f8fa}
+    .about{max-width:900px;margin:0 auto;padding:28px 24px 44px;border-top:1px solid var(--line)}.about h2{margin:0 0 8px;color:var(--navy);font-size:16px}.about p{margin:0;color:var(--muted);font-size:13px;line-height:1.65}
+    .api-help{max-width:900px;margin:0 auto;padding:0 24px 48px}.api-panel{border-top:1px solid var(--line);padding-top:20px}.api-help h2{margin:0;color:var(--navy);font-size:16px;font-weight:650}.api-help p{max-width:760px;margin:13px 0;color:var(--muted);font-size:13px}.guide-links{display:flex;flex-wrap:wrap;gap:9px 20px;margin-top:17px;font-size:13px;font-weight:600}.guide-links a{display:inline-flex;align-items:center;min-height:44px}
+    footer{max-width:1220px;margin:auto;padding:22px 32px;border-top:1px solid var(--line);display:flex;justify-content:space-between;gap:16px;color:var(--muted);font-size:12px}
+    @media(max-width:600px){.topbar{padding:16px 18px}.topbar-links{gap:14px}.topbar-name{font-size:15px}.hero{padding:clamp(70px,12vh,110px) 18px 75px}.hero-copy{margin-bottom:28px}.search-box{gap:8px;padding-left:14px}.search-box button{min-width:70px;padding:0 12px}.examples{gap:7px}.examples span{width:100%}.about,.api-help{padding-left:18px;padding-right:18px}footer{padding:20px 18px;display:block}footer span{display:block;margin-top:6px}}
+    @media(prefers-reduced-motion:reduce){.search-box,.search-box button{transition:none}}
+  </style>
+</head>
+<body>
+  <div class="campus-line" aria-hidden="true"></div>
+  <a class="skip" href="#search" data-i18n="skip">Skip to search</a>
+  <header class="topbar"><a class="topbar-name" href="/">CourseScope</a><nav class="topbar-links" aria-label="Main navigation"><a href="#about" data-i18n="aboutNav">About</a><a href="#api" data-i18n="apiNav">For AI / API</a><span class="language"><a href="/?lang=en" lang="en">EN</a><span aria-hidden="true">/</span><a href="/?lang=zh" lang="zh-Hans">中文</a></span></nav></header>
+  <main>
+    <section class="hero" id="search">
+      <p class="eyebrow" data-i18n="eyebrow">Independent guide to UC Davis course and professor reviews</p>
+      <h1>CourseScope</h1>
+      <p class="hero-copy" data-i18n="heroCopy">Find a course or professor. Explore who taught it and what students said.</p>
+      <form class="search-form" action="/search" method="get" role="search"><label for="query" data-i18n="searchLabel">Search courses or professors</label><div class="search-box"><svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 5 5"/></svg><input id="query" name="q" type="search" required autocomplete="off" placeholder="CHE 2A, MAT 21A, Bryan Enderle"><input id="search-lang" name="lang" type="hidden" value="en"><button type="submit" data-i18n="searchButton">Search</button></div></form>
+      <div class="examples"><span data-i18n="examples">Try a search</span><a href="/search?q=CHE%202A&amp;lang=en" data-query="CHE 2A">CHE 2A</a><a href="/search?q=MAT%2021A&amp;lang=en" data-query="MAT 21A">MAT 21A</a><a href="/search?q=Bryan%20Enderle&amp;lang=en" data-query="Bryan Enderle">Bryan Enderle</a></div>
+    </section>
+    <section class="about" id="about"><h2 data-i18n="aboutTitle">About this data</h2><p data-i18n="aboutCopy">Search course names and aliases in English or Chinese. Professor ratings come from Rate My Professors; course links may include inferred matches, so check the original course label and confidence when interpreting reviews.</p></section>
+    <section class="api-help" id="api"><div class="api-panel"><h2 data-i18n="apiTitle">For AI and API clients</h2><p data-i18n="apiCopy">AI agents can query the read-only JSON API v1 directly. See the OpenAPI contract for endpoints, filters, and pagination.</p><div class="guide-links"><a id="ai-guide-link" href="/ai-guide?lang=en" data-i18n="guideLink">Read the AI guide and prompt</a><a id="ai-prompt-link" href="/ai-prompt.txt?lang=en" data-i18n="promptLink">Plain text prompt</a><a id="review-search-link" href="/api/v1/reviews/search?department=Economics&amp;term=no%20slides&amp;term=powerpoint&amp;limit=20" data-i18n="reviewSearchLink">JSON review search example</a><a href="/openapi.json" data-i18n="openapiLink">OpenAPI JSON</a><a href="/llms.txt">llms.txt</a></div></div></section>
+  </main>
+  <footer><span>CourseScope · <span data-i18n="footerNote">Independent information lookup tool</span></span><a id="disclaimer-link" href="/disclaimer?lang=en" data-i18n="disclaimerLink">Disclaimer &amp; use notice</a></footer>
+  <script>
+    const lang=new URLSearchParams(location.search).get('lang')==='zh'?'zh':'en';
+    const copy={zh:{skip:'跳转到搜索',aboutNav:'数据说明',apiNav:'给 AI / API',eyebrow:'独立的 UC Davis 课程与教授评价查询工具',heroCopy:'搜索课程或教授，查看谁教过这门课，以及学生怎么评价。',searchLabel:'搜索课程或教授',searchButton:'搜索',examples:'试试这些搜索',aboutTitle:'关于数据',aboutCopy:'支持中英文课程名及别名搜索。教授评分来自 Rate My Professors；课程关联可能包含推断匹配，阅读评价时请查看原始课程名和置信度。',apiTitle:'给 AI 与程序使用',apiCopy:'AI Agent 可直接调用只读 JSON API v1；接口、筛选和分页规则见 OpenAPI。',guideLink:'阅读 AI 指南与提示词',promptLink:'纯文本提示词',reviewSearchLink:'JSON 评论搜索示例',openapiLink:'OpenAPI JSON',footerNote:'独立的信息查询工具',disclaimerLink:'免责声明与使用说明'}};
+    document.documentElement.lang=lang==='zh'?'zh-Hans':'en';
+    document.querySelector('#search-lang').value=lang;
+    document.querySelector('#disclaimer-link').href=`/disclaimer?lang=${lang}`;
+    document.querySelector('#ai-guide-link').href=`/ai-guide?lang=${lang}`;
+    document.querySelector('#ai-prompt-link').href=`/ai-prompt.txt?lang=${lang}`;
+    document.querySelector('#review-search-link').href=`/api/v1/reviews/search?department=Economics&term=no%20slides&term=powerpoint&limit=20`;
+    document.querySelector(`.language a[lang="${lang==='zh'?'zh-Hans':'en'}"]`)?.setAttribute('aria-current','page');
+    document.querySelectorAll('[data-query]').forEach(a=>a.href=`/search?q=${encodeURIComponent(a.dataset.query)}&lang=${lang}`);
+    if(lang==='zh')document.querySelectorAll('[data-i18n]').forEach(el=>{el.textContent=copy.zh[el.dataset.i18n]||el.textContent});
+  </script>
+</body>
+</html>

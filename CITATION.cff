@@ -1,0 +1,11 @@
+cff-version: 1.2.0
+message: "If CourseScope helps your work, please cite this repository."
+title: "CourseScope"
+abstract: "An independent bilingual search and read-only JSON API for UC Davis course and professor review research."
+authors:
+  - family-names: "Richisblog"
+    affiliation: "Independent developer"
+repository-code: "https://github.com/richisblog/RMPCourseScope"
+url: "https://rmp.richis.top"
+license: "Apache-2.0"
+version: "1.0.0"

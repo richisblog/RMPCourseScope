@@ -1,0 +1,21 @@
+services:
+  coursescope:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    image: coursescope:local
+    restart: unless-stopped
+    read_only: true
+    user: "10001:10001"
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - ../data/coursescope.sqlite:/data/coursescope.sqlite:ro
+      - ../data/coursescope-search.sqlite:/data/coursescope-search.sqlite:ro
+      - ../data/ucdavis-catalog.sqlite:/data/ucdavis-catalog.sqlite:ro

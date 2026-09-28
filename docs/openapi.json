@@ -1,0 +1,160 @@
+{
+  "openapi": "3.1.1",
+  "info": {
+    "title": "CourseScope read-only API",
+    "version": "1.0.0",
+    "description": "Read-only JSON API v1 for searching UC Davis Rate My Professors data in English or Chinese. Original student course labels are retained. Inferred course links expose relationship and confidence; they are search evidence, not enrollment proof. All API routes use GET and return JSON. Website pages are for human browsing, not an agent data interface."
+  },
+  "servers": [{"url": "/"}],
+  "paths": {
+    "/api/v1/search": {
+      "get": {
+        "operationId": "search",
+        "summary": "Search courses and professors in English or Chinese",
+        "parameters": [
+          {"name": "q", "in": "query", "required": true, "description": "Unicode search text. Examples: CHE 2A, Bryan Enderle, 化学2A, 数学21A. URL-encode UTF-8 characters.", "schema": {"type": "string", "minLength": 1}},
+          {"name": "type", "in": "query", "schema": {"type": "string", "enum": ["all", "course", "professor"], "default": "all"}},
+          {"$ref": "#/components/parameters/Lang"},
+          {"$ref": "#/components/parameters/Limit20"}
+        ],
+        "responses": {
+          "200": {"description": "Ranked matching courses and professors. Empty arrays mean no match.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/SearchResults"}}}},
+          "400": {"$ref": "#/components/responses/BadRequest"}
+        }
+      }
+    },
+    "/api/v1/reviews/search": {
+      "get": {
+        "operationId": "searchReviewComments",
+        "summary": "Search original student review comments with FTS5 keywords or phrases",
+        "description": "Repeat term 1–10 times. professor_id and department are optional. FTS5 searches the full comment corpus; add either or both to narrow results. Matches are evidence to inspect, not semantic confirmation; 'slides' may occur in both positive and negative claims. Keep filters unchanged and pass next_cursor as cursor for the next page.",
+        "parameters": [
+          {"name": "term", "in": "query", "required": true, "description": "Repeat for each expanded keyword or phrase; FTS5 token or phrase matching, not arbitrary substring matching; max 80 characters each.", "schema": {"type": "array", "items": {"type": "string", "minLength": 1, "maxLength": 80}, "minItems": 1, "maxItems": 10}, "style": "form", "explode": true},
+          {"name": "professor_id", "in": "query", "description": "Optional numeric RMP professor ID.", "schema": {"type": "integer"}},
+          {"name": "department", "in": "query", "description": "Optional exact case-insensitive RMP department label, e.g. Economics.", "schema": {"type": "string", "maxLength": 100}},
+          {"name": "mode", "in": "query", "schema": {"type": "string", "enum": ["any", "all"], "default": "any"}},
+          {"name": "course", "in": "query", "description": "Optional course key or equivalent formatted code. Uses inferred links while preserving course_raw.", "schema": {"type": "string"}},
+          {"name": "from", "in": "query", "description": "Inclusive UTC calendar date.", "schema": {"type": "string", "format": "date"}},
+          {"name": "to", "in": "query", "description": "Inclusive UTC calendar date.", "schema": {"type": "string", "format": "date"}},
+          {"$ref": "#/components/parameters/Confidence"},
+          {"$ref": "#/components/parameters/Limit20"},
+          {"name": "cursor", "in": "query", "description": "Opaque next_cursor returned by the previous page.", "schema": {"type": "string"}}
+        ],
+        "responses": {
+          "200": {"description": "Newest-first matching comments with original text, course, professor, and matched terms.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ReviewSearchPage"}}}},
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "404": {"$ref": "#/components/responses/NotFound"}
+        }
+      }
+    },
+    "/api/v1/courses/{course_key}": {
+      "get": {
+        "operationId": "getCourse",
+        "summary": "Get one course by canonical key or equivalent formatted code",
+        "parameters": [{"$ref": "#/components/parameters/CourseKey"}, {"$ref": "#/components/parameters/Lang"}],
+        "responses": {"200": {"description": "Course metadata", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Course"}}}}, "404": {"$ref": "#/components/responses/NotFound"}}
+      }
+    },
+    "/api/v1/courses/{course_key}/professors": {
+      "get": {
+        "operationId": "getCourseProfessors",
+        "summary": "Find and rank professors with reviews linked to a course",
+        "parameters": [{"$ref": "#/components/parameters/CourseKey"}, {"$ref": "#/components/parameters/Lang"}, {"$ref": "#/components/parameters/Confidence"}, {"$ref": "#/components/parameters/Limit50"},
+          {"name":"sort_by","in":"query","description":"active_first sorts recent reviewers first, then by overall rating. Default active_first.","schema":{"type":"string","enum":["rating_desc","rating_asc","difficulty_asc","difficulty_desc","reviews_desc","retake_desc","active_first"],"default":"active_first"}},
+          {"name":"min_rating","in":"query","schema":{"type":"number","minimum":0,"maximum":5}},
+          {"name":"max_difficulty","in":"query","schema":{"type":"number","minimum":0,"maximum":5}},
+          {"name":"min_reviews","in":"query","schema":{"type":"integer","minimum":0}},
+          {"name":"min_take_again","in":"query","description":"Percentage from 0 to 100.","schema":{"type":"number","minimum":0,"maximum":100}}],
+        "responses": {"200": {"description": "Filtered, sorted professors including recent review activity and student-reported grade counts", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/LinkedProfessors"}}}}, "404": {"$ref": "#/components/responses/NotFound"}}
+      }
+    },
+    "/api/v1/courses/{course_key}/professors/{professor_id}/stats": {
+      "get": {
+        "operationId": "getProfessorCourseStats",
+        "summary": "Get detailed descriptive statistics and yearly trend for one professor in one course",
+        "description": "One review is counted once per course, even if several link rules matched. Inferred links are included. Comparisons are descriptive and based on self-selected RMP reviewers, not all enrolled students. Recent and previous windows each span 730 days; a trend delta requires at least five rated reviews in each window. No causal or representative-sample claim is made.",
+        "parameters": [{"$ref": "#/components/parameters/CourseKey"}, {"$ref": "#/components/parameters/ProfessorId"}],
+        "responses": {"200": {"description": "Overall, time-window, yearly, distribution, and link-confidence statistics", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/CourseProfessorStats"}}}}, "404": {"$ref": "#/components/responses/NotFound"}}
+      }
+    },
+    "/api/v1/catalog/courses/{course_key}": {
+      "get": {
+        "operationId": "getOfficialCatalogCourse",
+        "summary": "Get official UC Davis catalog course title, units, description, prerequisites, and other published details",
+        "description": "Independent snapshot collected from UC Davis subject-code course pages. Exact course-key match only; malformed student-entered course labels are not silently corrected. Check fetched_at and catalog_url for current official information.",
+        "parameters": [{"$ref": "#/components/parameters/CourseKey"}],
+        "responses": {"200": {"description": "Official catalog metadata", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/CatalogCourse"}}}}, "404": {"$ref": "#/components/responses/NotFound"}}
+      }
+    },
+    "/api/v1/professors/{professor_id}": {
+      "get": {
+        "operationId": "getProfessor",
+        "summary": "Get a professor's identity and overall RMP profile metrics",
+        "parameters": [{"$ref": "#/components/parameters/ProfessorId"}],
+        "responses": {"200": {"description": "Professor profile", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Professor"}}}}, "404": {"$ref": "#/components/responses/NotFound"}}
+      }
+    },
+    "/api/v1/professors/{professor_id}/courses": {
+      "get": {
+        "operationId": "getProfessorCourses",
+        "summary": "Find courses linked to a professor's reviews",
+        "parameters": [{"$ref": "#/components/parameters/ProfessorId"}, {"$ref": "#/components/parameters/Lang"}, {"$ref": "#/components/parameters/Confidence"}, {"$ref": "#/components/parameters/Limit50"}],
+        "responses": {"200": {"description": "Courses ordered by linked review count", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/LinkedCourses"}}}}, "404": {"$ref": "#/components/responses/NotFound"}}
+      }
+    },
+    "/api/v1/professors/{professor_id}/reviews": {
+      "get": {
+        "operationId": "getProfessorReviews",
+        "summary": "Read a professor's reviews, optionally filtered by course and inclusive UTC dates",
+        "description": "Keep course_raw when interpreting a course filter. course_links contains each possible normalized association, relationship, and confidence. Pass next_cursor unchanged as cursor for the next page with the same filters.",
+        "parameters": [
+          {"$ref": "#/components/parameters/ProfessorId"},
+          {"name": "course", "in": "query", "description": "Canonical or equivalent course code, for example CHE2A, CHE002A, or CHE 002A.", "schema": {"type": "string"}},
+          {"name": "from", "in": "query", "description": "Inclusive UTC calendar date.", "schema": {"type": "string", "format": "date"}},
+          {"name": "to", "in": "query", "description": "Inclusive UTC calendar date.", "schema": {"type": "string", "format": "date"}},
+          {"$ref": "#/components/parameters/Confidence"},
+          {"$ref": "#/components/parameters/Limit50"},
+          {"name": "cursor", "in": "query", "description": "Opaque next_cursor returned by the previous page.", "schema": {"type": "string"}},
+          {"name": "include_raw", "in": "query", "description": "Set to 1 to include the stored original RMP JSON record for each review.", "schema": {"type": "integer", "enum": [0, 1], "default": 0}}
+        ],
+        "responses": {
+          "200": {"description": "Newest-first page of reviews", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ReviewPage"}}}},
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "404": {"$ref": "#/components/responses/NotFound"}
+        }
+      }
+    }
+  },
+  "components": {
+    "parameters": {
+      "CourseKey": {"name": "course_key", "in": "path", "required": true, "description": "Compact course key such as CHE2A. Display forms such as CHE002A are also resolved.", "schema": {"type": "string"}},
+      "ProfessorId": {"name": "professor_id", "in": "path", "required": true, "description": "Numeric Rate My Professors ID.", "schema": {"type": "integer"}},
+      "Lang": {"name": "lang", "in": "query", "description": "Controls presentation labels, not search language. JSON property names remain English.", "schema": {"type": "string", "enum": ["en", "zh"], "default": "en"}},
+      "Confidence": {"name": "min_confidence", "in": "query", "description": "Minimum inferred course-link confidence. Default 0 includes broad discovery matches.", "schema": {"type": "number", "minimum": 0, "maximum": 1, "default": 0}},
+      "Limit20": {"name": "limit", "in": "query", "schema": {"type": "integer", "minimum": 1, "maximum": 100, "default": 20}},
+      "Limit50": {"name": "limit", "in": "query", "schema": {"type": "integer", "minimum": 1, "maximum": 100, "default": 50}}
+    },
+    "responses": {
+      "BadRequest": {"description": "Invalid parameter", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}},
+      "NotFound": {"description": "Unknown professor or course", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}
+    },
+    "schemas": {
+      "SearchResults": {"type": "object", "properties": {"query": {"type": "string"}, "lang": {"type": "string"}, "courses": {"type": "array", "items": {"$ref": "#/components/schemas/Course"}}, "professors": {"type": "array", "items": {"$ref": "#/components/schemas/Professor"}}}},
+      "LinkedProfessors": {"type": "object", "properties": {"course": {"$ref": "#/components/schemas/Course"}, "min_confidence": {"type": "number"}, "sort_by": {"type":"string"}, "filters":{"type":"object"}, "items": {"type": "array", "items": {"$ref": "#/components/schemas/LinkedProfessor"}}}},
+      "LinkedCourses": {"type": "object", "properties": {"professor_id": {"type": "integer"}, "min_confidence": {"type": "number"}, "items": {"type": "array", "items": {"$ref": "#/components/schemas/LinkedCourse"}}}},
+      "ReviewPage": {"type": "object", "properties": {"professor_id": {"type": "integer"}, "filters": {"type": "object"}, "total_count": {"type": "integer", "description": "Number of stored reviews matching the filters before cursor pagination."}, "items": {"type": "array", "items": {"$ref": "#/components/schemas/Review"}}, "next_cursor": {"type": ["string", "null"]}}},
+      "ReviewSearchPage": {"type": "object", "properties": {"terms": {"type": "array", "items": {"type": "string"}}, "mode": {"type": "string"}, "filters": {"type": "object"}, "match_semantics": {"type": "string"}, "total_count": {"type": "integer"}, "professor_matches": {"type": "array", "description": "Top 20 professors by matching-review count before pagination; not a relevance verdict.", "items": {"type": "object", "properties": {"id": {"type": "integer"}, "name": {"type": "string"}, "department": {"type": ["string", "null"]}, "match_count": {"type": "integer"}, "url": {"type": "string"}}}}, "items": {"type": "array", "items": {"$ref": "#/components/schemas/ReviewSearchHit"}}, "next_cursor": {"type": ["string", "null"]}}},
+      "ReviewSearchHit": {"type": "object", "properties": {"review_id": {"type": "string"}, "date": {"type": "string"}, "comment": {"type": "string"}, "snippet": {"type": "string"}, "matched_terms": {"type": "array", "items": {"type": "string"}}, "course_raw": {"type": ["string", "null"]}, "course_key": {"type": ["string", "null"]}, "rating": {"type": ["number", "null"]}, "difficulty": {"type": ["number", "null"]}, "professor": {"type": "object", "properties": {"id": {"type": "integer"}, "name": {"type": "string"}, "department": {"type": ["string", "null"]}, "url": {"type": "string"}, "reviews_url": {"type": "string"}}}}},
+      "Course": {"type": "object", "properties": {"key": {"type": "string"}, "code": {"type": "string"}, "title_en": {"type": ["string", "null"]}, "title_zh": {"type": ["string", "null"]}, "display_title": {"type": ["string", "null"]}, "source": {"type": ["string", "null"]}, "catalog_url": {"type": ["string", "null"]}, "url": {"type": "string"}, "api_url": {"type": "string"}}},
+      "Professor": {"type": "object", "properties": {"id": {"type": "integer"}, "name": {"type": "string"}, "department": {"type": ["string", "null"]}, "overall_rating": {"type": ["number", "null"]}, "overall_difficulty": {"type": ["number", "null"]}, "would_take_again_percent": {"type": ["number", "null"]}, "total_rmp_ratings": {"type": ["integer", "null"]}, "last_review_date":{"type":["string","null"],"format":"date"}, "activity_status":{"type":"string","enum":["active","inactive"],"description":"Active means at least one review in the last two calendar years, not confirmed current teaching."}, "rmp_url": {"type": ["string", "null"]}, "url": {"type": "string"}, "api_url": {"type": "string"}, "reviews_url": {"type": "string"}, "courses_url": {"type": "string"}}},
+      "GradeDistribution": {"type":"object","properties":{"grades":{"type":"array","items":{"type":"object","properties":{"grade":{"type":"string"},"count":{"type":"integer"}}}},"other_count":{"type":"integer"},"unreported_count":{"type":"integer"},"reported_count":{"type":"integer"},"sample_size":{"type":"integer"},"source":{"type":"string"}}},
+      "LinkedProfessor": {"allOf": [{"$ref": "#/components/schemas/Professor"}, {"type": "object", "properties": {"linked_review_count": {"type": "integer"}, "max_confidence": {"type": "number"}, "grade_distribution":{"$ref":"#/components/schemas/GradeDistribution"}, "course_stats":{"anyOf":[{"$ref":"#/components/schemas/CourseProfessorStats"},{"type":"null"}],"description":"Precomputed for all links. Null when min_confidence is nonzero; do not combine filtered counts with unfiltered stats."}}}]},
+      "LinkedCourse": {"allOf": [{"$ref": "#/components/schemas/Course"}, {"type": "object", "properties": {"linked_review_count": {"type": "integer"}, "max_confidence": {"type": "number"}, "course_stats":{"anyOf":[{"$ref":"#/components/schemas/CourseProfessorStats"},{"type":"null"}]}}}]},
+      "CourseProfessorStats": {"type":"object","description":"Review-level descriptive statistics. Not official enrollment, GPA, or a representative-sample inference. rating_mean_delta = recent 730-day mean minus preceding 730-day mean; only reported with >=5 ratings in both windows. Wilson interval describes observed positive-review share under a binomial model but does not address selection bias.","properties":{"course_key":{"type":"string"},"professor_id":{"type":"integer"},"description":{"type":"string"},"as_of":{"type":"string","format":"date"},"method_version":{"type":"string"},"link_scope":{"type":"string"},"overall":{"type":"object"},"recent_24m":{"type":"object"},"previous_24m":{"type":"object"},"calendar_years":{"type":"object"},"link_confidence":{"type":"object"},"trend":{"type":"object"},"cautions":{"type":"array","items":{"type":"string"}}}},
+      "CatalogCourse": {"type":"object","properties":{"key":{"type":"string"},"code":{"type":"string"},"title_en":{"type":"string"},"units":{"type":"string"},"description":{"type":"string"},"prerequisites":{"type":["string","null"]},"general_education":{"type":["string","null"],"description":"UC Davis General Education categories, e.g. Science & Engineering (SE); Scientific Literacy (SL). Read from the official catalog snapshot."},"details":{"type":"object"},"catalog_url":{"type":"string"},"subject_url":{"type":"string"},"fetched_at":{"type":"string"},"source":{"type":"string"}}},
+      "ReviewLink": {"type": "object", "description": "A proposed link to a normalized course. Does not overwrite course_raw.", "properties": {"course_key": {"type": "string"}, "relationship": {"type": "string"}, "confidence": {"type": "number"}}},
+      "Review": {"type": "object", "properties": {"review_id": {"type": "string"}, "source_review_id": {"type": ["integer", "null"]}, "date": {"type": "string"}, "rating": {"type": ["number", "null"]}, "difficulty": {"type": ["number", "null"]}, "clarity": {"type": ["number", "null"]}, "helpfulness": {"type": ["number", "null"]}, "grade": {"type": ["string", "null"]}, "comment": {"type": ["string", "null"]}, "course_raw": {"type": ["string", "null"]}, "course_key": {"type": ["string", "null"]}, "course_code": {"type": ["string", "null"]}, "course_title": {"type": ["string", "null"]}, "rating_tags": {"type": "array", "items": {"type": "string"}}, "would_take_again": {"type": ["boolean", "null"]}, "is_online_class": {"type": ["boolean", "null"]}, "is_for_credit": {"type": ["boolean", "null"]}, "attendance_mandatory": {"type": ["string", "null"]}, "textbook_used": {"type": ["boolean", "null"]}, "thumbs_up": {"type": ["integer", "null"]}, "thumbs_down": {"type": ["integer", "null"]}, "course_links": {"type": "array", "items": {"$ref": "#/components/schemas/ReviewLink"}}, "raw_record": {"type": ["object", "null"], "description": "Present only with include_raw=1."}}},
+      "Error": {"type": "object", "properties": {"error": {"type": "object", "properties": {"code": {"type": "string"}, "message": {"type": "string"}}}}}
+    }
+  }
+}
